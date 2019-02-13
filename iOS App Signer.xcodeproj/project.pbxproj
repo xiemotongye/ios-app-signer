@@ -24,7 +24,30 @@
 		659734A71C65B94F00383D2D /* fmemopen.c in Sources */ = {isa = PBXBuildFile; fileRef = 659734A41C65B94F00383D2D /* fmemopen.c */; };
 		65B2EAA21CDE981500D02053 /* iASShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65B2EAA11CDE981500D02053 /* iASShared.swift */; };
 		65CED3A32D8B6F3E00E9185B /* fix-wwdr.sh in Resources */ = {isa = PBXBuildFile; fileRef = 65CED3A22D8B6F3E00E9185B /* fix-wwdr.sh */; };
+		98FB02662211646400B810FA /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98FB02652211646400B810FA /* main.swift */; };
+		98FB026A2211647300B810FA /* fmemopen.c in Sources */ = {isa = PBXBuildFile; fileRef = 659734A41C65B94F00383D2D /* fmemopen.c */; };
+		98FB026B2211647500B810FA /* MarkdownTokenizer.m in Sources */ = {isa = PBXBuildFile; fileRef = 6597349A1C65B5F600383D2D /* MarkdownTokenizer.m */; };
+		98FB026C2211647800B810FA /* MarkdownTokens.m in Sources */ = {isa = PBXBuildFile; fileRef = 6597349C1C65B5F600383D2D /* MarkdownTokens.m */; };
+		98FB026D2211647B00B810FA /* NSAttributedStringMarkdownParser.m in Sources */ = {isa = PBXBuildFile; fileRef = 6597349F1C65B5F600383D2D /* NSAttributedStringMarkdownParser.m */; };
+		98FB026E2211648800B810FA /* ProvisioningProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 655FFFA11BEAD93600D43AD8 /* ProvisioningProfile.swift */; };
+		98FB026F2211648A00B810FA /* NSTask-execute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 655FFF9C1BE9B3E300D43AD8 /* NSTask-execute.swift */; };
+		98FB02702211648D00B810FA /* StringByAppendingPathComponent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 655FFF9E1BE9BA9D00D43AD8 /* StringByAppendingPathComponent.swift */; };
+		98FB02712211649000B810FA /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65311EAF1BF835F100516EFD /* Log.swift */; };
+		98FB028A2212D77100B810FA /* AppSigner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98FB02892212D77100B810FA /* AppSigner.swift */; };
+		98FB028B2213FC6000B810FA /* AppSigner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98FB02892212D77100B810FA /* AppSigner.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		98FB02612211646400B810FA /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		652408C81BE743D4006FA4C6 /* iOS App Signer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "iOS App Signer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -53,10 +76,20 @@
 		65B24E0D1BECB30D005D2068 /* AppSigner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = AppSigner.entitlements; sourceTree = "<group>"; };
 		65B2EAA11CDE981500D02053 /* iASShared.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = iASShared.swift; path = AppSigner/Classes/iASShared.swift; sourceTree = "<group>"; };
 		65CED3A22D8B6F3E00E9185B /* fix-wwdr.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "fix-wwdr.sh"; path = "Resources/fix-wwdr.sh"; sourceTree = "<group>"; };
+		98FB02632211646400B810FA /* iOSAppSignerCLT */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = iOSAppSignerCLT; sourceTree = BUILT_PRODUCTS_DIR; };
+		98FB02652211646400B810FA /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		98FB02892212D77100B810FA /* AppSigner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSigner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		652408C51BE743D4006FA4C6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		98FB02602211646400B810FA /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -71,6 +104,7 @@
 			children = (
 				659734971C65B5B900383D2D /* NimbusKit */,
 				652408CA1BE743D4006FA4C6 /* AppSigner */,
+				98FB02642211646400B810FA /* iOSAppSignerCLT */,
 				652408C91BE743D4006FA4C6 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -79,6 +113,7 @@
 			isa = PBXGroup;
 			children = (
 				652408C81BE743D4006FA4C6 /* iOS App Signer.app */,
+				98FB02632211646400B810FA /* iOSAppSignerCLT */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -108,6 +143,7 @@
 				65311EAF1BF835F100516EFD /* Log.swift */,
 				65311EAD1BF8259000516EFD /* NSMenuLink.swift */,
 				65B2EAA11CDE981500D02053 /* iASShared.swift */,
+				98FB02892212D77100B810FA /* AppSigner.swift */,
 			);
 			name = Classes;
 			path = ..;
@@ -164,6 +200,14 @@
 			name = Resources;
 			sourceTree = "<group>";
 		};
+		98FB02642211646400B810FA /* iOSAppSignerCLT */ = {
+			isa = PBXGroup;
+			children = (
+				98FB02652211646400B810FA /* main.swift */,
+			);
+			path = iOSAppSignerCLT;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -184,13 +228,30 @@
 			productReference = 652408C81BE743D4006FA4C6 /* iOS App Signer.app */;
 			productType = "com.apple.product-type.application";
 		};
+		98FB02622211646400B810FA /* iOSAppSignerCLT */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 98FB02692211646400B810FA /* Build configuration list for PBXNativeTarget "iOSAppSignerCLT" */;
+			buildPhases = (
+				98FB025F2211646400B810FA /* Sources */,
+				98FB02602211646400B810FA /* Frameworks */,
+				98FB02612211646400B810FA /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = iOSAppSignerCLT;
+			productName = iOSAppSignerCLT;
+			productReference = 98FB02632211646400B810FA /* iOSAppSignerCLT */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		652408C01BE743D4006FA4C6 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastSwiftUpdateCheck = 0720;
+				LastSwiftUpdateCheck = 1010;
 				LastUpgradeCheck = 0810;
 				ORGANIZATIONNAME = "Daniel Radtke";
 				TargetAttributes = {
@@ -203,6 +264,11 @@
 								enabled = 0;
 							};
 						};
+					};
+					98FB02622211646400B810FA = {
+						CreatedOnToolsVersion = 10.1;
+						DevelopmentTeam = UEM78XS769;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -220,6 +286,7 @@
 			projectRoot = "";
 			targets = (
 				652408C71BE743D4006FA4C6 /* iOS App Signer */,
+				98FB02622211646400B810FA /* iOSAppSignerCLT */,
 			);
 		};
 /* End PBXProject section */
@@ -254,8 +321,26 @@
 				65311EAE1BF8259000516EFD /* NSMenuLink.swift in Sources */,
 				655FFF9D1BE9B3E300D43AD8 /* NSTask-execute.swift in Sources */,
 				659734A21C65B5F600383D2D /* NSAttributedStringMarkdownParser.m in Sources */,
+				98FB028A2212D77100B810FA /* AppSigner.swift in Sources */,
 				655FFFA21BEAD93600D43AD8 /* ProvisioningProfile.swift in Sources */,
 				65B2EAA21CDE981500D02053 /* iASShared.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		98FB025F2211646400B810FA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				98FB026E2211648800B810FA /* ProvisioningProfile.swift in Sources */,
+				98FB026B2211647500B810FA /* MarkdownTokenizer.m in Sources */,
+				98FB02712211649000B810FA /* Log.swift in Sources */,
+				98FB026A2211647300B810FA /* fmemopen.c in Sources */,
+				98FB026D2211647B00B810FA /* NSAttributedStringMarkdownParser.m in Sources */,
+				98FB026C2211647800B810FA /* MarkdownTokens.m in Sources */,
+				98FB026F2211648A00B810FA /* NSTask-execute.swift in Sources */,
+				98FB028B2213FC6000B810FA /* AppSigner.swift in Sources */,
+				98FB02662211646400B810FA /* main.swift in Sources */,
+				98FB02702211648D00B810FA /* StringByAppendingPathComponent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -380,6 +465,64 @@
 			};
 			name = Release;
 		};
+		98FB02672211646400B810FA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_IDENTITY = "Mac Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = UEM78XS769;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 4.2;
+			};
+			name = Debug;
+		};
+		98FB02682211646400B810FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_IDENTITY = "Mac Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = UEM78XS769;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 4.2;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -397,6 +540,15 @@
 			buildConfigurations = (
 				652408EE1BE743D4006FA4C6 /* Debug */,
 				652408EF1BE743D4006FA4C6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		98FB02692211646400B810FA /* Build configuration list for PBXNativeTarget "iOSAppSignerCLT" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				98FB02672211646400B810FA /* Debug */,
+				98FB02682211646400B810FA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -24,28 +24,12 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
     @IBOutlet var appVersion: NSTextField!
     
     //MARK: Variables
-    var provisioningProfiles:[ProvisioningProfile] = []
-    var codesigningCerts: [String] = []
-    var profileFilename: String?
-    var ReEnableNewApplicationID = false
-    var PreviousNewApplicationID = ""
-    var outputFile: String?
     var startSize: CGFloat?
     var NibLoaded = false
     
     //MARK: Constants
     let defaults = UserDefaults()
     let fileManager = FileManager.default
-    let bundleID = Bundle.main.bundleIdentifier
-    let arPath = "/usr/bin/ar"
-    let mktempPath = "/usr/bin/mktemp"
-    let tarPath = "/usr/bin/tar"
-    let unzipPath = "/usr/bin/unzip"
-    let zipPath = "/usr/bin/zip"
-    let defaultsPath = "/usr/bin/defaults"
-    let codesignPath = "/usr/bin/codesign"
-    let securityPath = "/usr/bin/security"
-    let chmodPath = "/bin/chmod"
     
     //MARK: Drag / Drop
     var fileTypes: [String] = ["ipa","deb","app","xcarchive","mobileprovision"]
@@ -131,10 +115,14 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         register(forDraggedTypes: [NSFilenamesPboardType, NSURLPboardType])
+        NotificationCenter.default.addObserver(self, selector: #selector(refreshStatus), name: NSNotification.Name(AppSigner.sharedInstance.refreshStatusNotification), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(cleanup), name: NSNotification.Name(AppSigner.sharedInstance.cleanupNotification), object: nil)
     }
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         register(forDraggedTypes: [NSFilenamesPboardType, NSURLPboardType])
+        NotificationCenter.default.addObserver(self, selector: #selector(refreshStatus), name: NSNotification.Name(AppSigner.sharedInstance.refreshStatusNotification), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(cleanup), name: NSNotification.Name(AppSigner.sharedInstance.cleanupNotification), object: nil)
     }
     override func awakeFromNib() {
         super.awakeFromNib()
@@ -146,15 +134,15 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
             populateProvisioningProfiles()
             populateCodesigningCerts()
             if let defaultCert = defaults.string(forKey: "signingCertificate") {
-                if codesigningCerts.contains(defaultCert) {
+                if AppSigner.sharedInstance.codesigningCerts.contains(defaultCert) {
                     Log.write("Loaded Codesigning Certificate from Defaults: \(defaultCert)")
                     CodesigningCertsPopup.selectItem(withTitle: defaultCert)
                 }
             }
-            setStatus("Ready")
-            if checkXcodeCLI() == false {
+            AppSigner.setStatus("Ready")
+            if AppSigner.checkXcodeCLI() == false {
                 if #available(OSX 10.10, *) {
-                    let _ = installXcodeCLI()
+                    let _ = AppSigner.installXcodeCLI()
                 } else {
                     let alert = NSAlert()
                     alert.messageText = "Please install the Xcode command line tools and re-launch this application."
@@ -167,51 +155,16 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
         }
     }
     
-    func installXcodeCLI() -> AppSignerTaskOutput {
-        return Process().execute("/usr/bin/xcode-select", workingDirectory: nil, arguments: ["--install"])
-    }
-    
-    func checkXcodeCLI() -> Bool {
-        if #available(OSX 10.10, *) {
-            if Process().execute("/usr/bin/xcode-select", workingDirectory: nil, arguments: ["-p"]).status   != 0 {
-                return false
-            }
-        } else {
-            if Process().execute("/usr/sbin/pkgutil", workingDirectory: nil, arguments: ["--pkg-info=com.apple.pkg.DeveloperToolsCLI"]).status != 0 {
-                // Command line tools not available
-                return false
-            }
-        }
-        
-        return true
-    }
-    
-    func makeTempFolder()->String?{
-        let tempTask = Process().execute(mktempPath, workingDirectory: nil, arguments: ["-d","-t",bundleID!])
-        if tempTask.status != 0 {
-            return nil
-        }
-        return tempTask.output.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-    }
-    
-    func setStatus(_ status: String){
-        Log.write(status)
-        if (!Thread.isMainThread){
-            DispatchQueue.main.sync{
-                setStatus(status)
-            }
-        }
-        else{
-            StatusLabel.stringValue = status
-        }
+    func refreshStatus() {
+        StatusLabel.stringValue = AppSigner.sharedInstance.status
     }
     
     func populateProvisioningProfiles(){
         let zeroWidthSpace = "​"
-        self.provisioningProfiles = ProvisioningProfile.getProfiles().sorted {
+        AppSigner.sharedInstance.provisioningProfiles = ProvisioningProfile.getProfiles().sorted {
             ($0.name == $1.name && $0.created.timeIntervalSince1970 > $1.created.timeIntervalSince1970) || $0.name < $1.name
         }
-        setStatus("Found \(provisioningProfiles.count) Provisioning Profile\(provisioningProfiles.count>1 || provisioningProfiles.count<1 ? "s":"")")
+        AppSigner.setStatus("Found \(AppSigner.sharedInstance.provisioningProfiles.count) Provisioning Profile\(AppSigner.sharedInstance.provisioningProfiles.count>1 || AppSigner.sharedInstance.provisioningProfiles.count<1 ? "s":"")")
         ProvisioningProfilesPopup.removeAllItems()
         ProvisioningProfilesPopup.addItems(withTitles: [
             "Re-Sign Only",
@@ -223,7 +176,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
         formatter.timeStyle = .medium
         var newProfiles: [ProvisioningProfile] = []
         var zeroWidthPadding: String = ""
-        for profile in provisioningProfiles {
+        for profile in AppSigner.sharedInstance.provisioningProfiles {
             zeroWidthPadding = "\(zeroWidthPadding)\(zeroWidthSpace)"
             if profile.expires.timeIntervalSince1970 > Date().timeIntervalSince1970 {
                 newProfiles.append(profile)
@@ -238,31 +191,13 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                     "Expires: \(formatter.string(from: profile.expires as Date))"
                 ]
                 ProvisioningProfilesPopup.lastItem!.toolTip = toolTipItems.joined(separator: "\n")
-                setStatus("Added profile \(profile.appID), expires (\(formatter.string(from: profile.expires as Date)))")
+                AppSigner.setStatus("Added profile \(profile.appID), expires (\(formatter.string(from: profile.expires as Date)))")
             } else {
-                setStatus("Skipped profile \(profile.appID), expired (\(formatter.string(from: profile.expires as Date)))")
+                AppSigner.setStatus("Skipped profile \(profile.appID), expired (\(formatter.string(from: profile.expires as Date)))")
             }
         }
-        self.provisioningProfiles = newProfiles
+        AppSigner.sharedInstance.provisioningProfiles = newProfiles
         chooseProvisioningProfile(ProvisioningProfilesPopup)
-    }
-    
-    func getCodesigningCerts() -> [String] {
-        var output: [String] = []
-        let securityResult = Process().execute(securityPath, workingDirectory: nil, arguments: ["find-identity","-v","-p","codesigning"])
-        if securityResult.output.characters.count < 1 {
-            return output
-        }
-        let rawResult = securityResult.output.components(separatedBy: "\"")
-        
-        var index: Int
-        
-        for index in stride(from: 0, through: rawResult.count - 2, by: 2) {
-            if !(rawResult.count - 1 < index + 1) {
-                output.append(rawResult[index+1])
-            }
-        }
-        return output
     }
     
     func showCodesignCertsErrorAlert(){
@@ -272,7 +207,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
         alert.addButton(withTitle: "Yes")
         alert.addButton(withTitle: "No")
         if alert.runModal() == NSAlertFirstButtonReturn {
-            if let tempFolder = makeTempFolder() {
+            if let tempFolder = AppSigner.makeTempFolder() {
                 iASShared.fixSigning(tempFolder)
                 try? fileManager.removeItem(atPath: tempFolder)
                 populateCodesigningCerts()
@@ -282,13 +217,13 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
     
     func populateCodesigningCerts() {
         CodesigningCertsPopup.removeAllItems()
-        self.codesigningCerts = getCodesigningCerts()
+        AppSigner.sharedInstance.codesigningCerts = AppSigner.getCodesigningCerts()
         
-        setStatus("Found \(self.codesigningCerts.count) Codesigning Certificate\(self.codesigningCerts.count>1 || self.codesigningCerts.count<1 ? "s":"")")
-        if self.codesigningCerts.count > 0 {
-            for cert in self.codesigningCerts {
+        AppSigner.setStatus("Found \(AppSigner.sharedInstance.codesigningCerts.count) Codesigning Certificate\(AppSigner.sharedInstance.codesigningCerts.count>1 || AppSigner.sharedInstance.codesigningCerts.count<1 ? "s":"")")
+        if AppSigner.sharedInstance.codesigningCerts.count > 0 {
+            for cert in AppSigner.sharedInstance.codesigningCerts {
                 CodesigningCertsPopup.addItem(withTitle: cert)
-                setStatus("Added signing certificate \"\(cert)\"")
+                AppSigner.setStatus("Added signing certificate \"\(cert)\"")
             }
         } else {
             showCodesignCertsErrorAlert()
@@ -298,11 +233,11 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
     
     func checkProfileID(_ profile: ProvisioningProfile?){
         if let profile = profile {
-            self.profileFilename = profile.filename
-            setStatus("Selected provisioning profile \(profile.appID)")
+            AppSigner.sharedInstance.profileFilename = profile.filename
+            AppSigner.setStatus("Selected provisioning profile \(profile.appID)")
             if profile.expires.timeIntervalSince1970 < Date().timeIntervalSince1970 {
                 ProvisioningProfilesPopup.selectItem(at: 0)
-                setStatus("Provisioning profile expired")
+                AppSigner.setStatus("Provisioning profile expired")
                 chooseProvisioningProfile(ProvisioningProfilesPopup)
             }
             if profile.appID.characters.index(of: "*") == nil {
@@ -318,7 +253,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
             }
         } else {
             ProvisioningProfilesPopup.selectItem(at: 0)
-            setStatus("Invalid provisioning profile")
+            AppSigner.setStatus("Invalid provisioning profile")
             chooseProvisioningProfile(ProvisioningProfilesPopup)
         }
     }
@@ -336,14 +271,14 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                 BrowseButton.isEnabled = true
                 ProvisioningProfilesPopup.isEnabled = true
                 CodesigningCertsPopup.isEnabled = true
-                NewApplicationIDTextField.isEnabled = ReEnableNewApplicationID
-                NewApplicationIDTextField.stringValue = PreviousNewApplicationID
+                NewApplicationIDTextField.isEnabled = AppSigner.sharedInstance.ReEnableNewApplicationID
+                NewApplicationIDTextField.stringValue = AppSigner.sharedInstance.PreviousNewApplicationID
                 StartButton.isEnabled = true
                 appDisplayName.isEnabled = true
             } else {
                 // Backup previous values
-                PreviousNewApplicationID = NewApplicationIDTextField.stringValue
-                ReEnableNewApplicationID = NewApplicationIDTextField.isEnabled
+                AppSigner.sharedInstance.PreviousNewApplicationID = NewApplicationIDTextField.stringValue
+                AppSigner.sharedInstance.ReEnableNewApplicationID = NewApplicationIDTextField.isEnabled
                 
                 InputFileText.isEnabled = false
                 BrowseButton.isEnabled = false
@@ -356,42 +291,10 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
         }
     }
     
-    func recursiveDirectorySearch(_ path: String, extensions: [String], found: ((_ file: String) -> Void)){
-        
-        if let files = try? fileManager.contentsOfDirectory(atPath: path) {
-            var isDirectory: ObjCBool = true
-            
-            for file in files {
-                let currentFile = path.stringByAppendingPathComponent(file)
-                fileManager.fileExists(atPath: currentFile, isDirectory: &isDirectory)
-                if isDirectory.boolValue {
-                    recursiveDirectorySearch(currentFile, extensions: extensions, found: found)
-                }
-                if extensions.contains(file.pathExtension) {
-                    found(currentFile)
-                }
-                
-            }
-        }
-    }
-    
-    func unzip(_ inputFile: String, outputPath: String)->AppSignerTaskOutput {
-        return Process().execute(unzipPath, workingDirectory: nil, arguments: ["-q",inputFile,"-d",outputPath])
-    }
-    func zip(_ inputPath: String, outputFile: String)->AppSignerTaskOutput {
-        return Process().execute(zipPath, workingDirectory: inputPath, arguments: ["-qry", outputFile, "."])
-    }
-    
-    func cleanup(_ tempFolder: String){
-        do {
-            Log.write("Deleting: \(tempFolder)")
-            try fileManager.removeItem(atPath: tempFolder)
-        } catch let error as NSError {
-            setStatus("Unable to delete temp folder")
-            Log.write(error.localizedDescription)
-        }
+    func cleanup() {
         controlsEnabled(true)
     }
+    
     func bytesToSmallestSi(_ size: Double) -> String {
         let prefixes = ["","K","M","G","T","P","E","Z","Y"]
         for i in 1...6 {
@@ -403,18 +306,6 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
             
         }
         return "\(size)B"
-    }
-    func getPlistKey(_ plist: String, keyName: String)->String? {
-        let currTask = Process().execute(defaultsPath, workingDirectory: nil, arguments: ["read", plist, keyName])
-        if currTask.status == 0 {
-            return String(currTask.output.characters.dropLast())
-        } else {
-            return nil
-        }
-    }
-    
-    func setPlistKey(_ plist: String, keyName: String, value: String)->AppSignerTaskOutput {
-        return Process().execute(defaultsPath, workingDirectory: nil, arguments: ["write", plist, keyName, value])
     }
     
     //MARK: NSURL Delegate
@@ -428,7 +319,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
             do {
                 try fileManager.moveItem(at: location, to: URL(fileURLWithPath: downloadPath))
             } catch let error as NSError {
-                setStatus("Unable to move downloaded file")
+                AppSigner.setStatus("Unable to move downloaded file")
                 Log.write(error.localizedDescription)
             }
         }
@@ -444,56 +335,6 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
         downloadProgress.doubleValue = percentDownloaded
     }
     
-    //MARK: Codesigning
-    func codeSign(_ file: String, certificate: String, entitlements: String?,before:((_ file: String, _ certificate: String, _ entitlements: String?)->Void)?, after: ((_ file: String, _ certificate: String, _ entitlements: String?, _ codesignTask: AppSignerTaskOutput)->Void)?)->AppSignerTaskOutput{
-        
-        let useEntitlements: Bool = ({
-            if entitlements == nil {
-                return false
-            } else {
-                if fileManager.fileExists(atPath: entitlements!) {
-                    return true
-                } else {
-                    return false
-                }
-            }
-        })()
-        
-        if let beforeFunc = before {
-            beforeFunc(file, certificate, entitlements)
-        }
-        var arguments = ["-vvv","-fs",certificate,"--no-strict"]
-        if useEntitlements {
-            arguments.append("--entitlements=\(entitlements!)")
-        }
-        arguments.append(file)
-        let codesignTask = Process().execute(codesignPath, workingDirectory: nil, arguments: arguments)
-        if let afterFunc = after {
-            afterFunc(file, certificate, entitlements, codesignTask)
-        }
-        return codesignTask
-    }
-    func testSigning(_ certificate: String, tempFolder: String )->Bool? {
-        let codesignTempFile = tempFolder.stringByAppendingPathComponent("test-sign")
-        
-        // Copy our binary to the temp folder to use for testing.
-        let path = ProcessInfo.processInfo.arguments[0]
-        if (try? fileManager.copyItem(atPath: path, toPath: codesignTempFile)) != nil {
-            codeSign(codesignTempFile, certificate: certificate, entitlements: nil, before: nil, after: nil)
-            
-            let verificationTask = Process().execute(codesignPath, workingDirectory: nil, arguments: ["-v",codesignTempFile])
-            try? fileManager.removeItem(atPath: codesignTempFile)
-            if verificationTask.status == 0 {
-                return true
-            } else {
-                return false
-            }
-        } else {
-            setStatus("Error testing codesign")
-        }
-        return nil
-    }
-    
     func startSigning() {
         controlsEnabled(false)
         
@@ -502,10 +343,10 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
         saveDialog.allowedFileTypes = ["ipa"]
         saveDialog.nameFieldStringValue = InputFileText.stringValue.lastPathComponent.stringByDeletingPathExtension
         if saveDialog.runModal() == NSFileHandlingPanelOKButton {
-            outputFile = saveDialog.url!.path
+            AppSigner.sharedInstance.outputFile = saveDialog.url!.path
             Thread.detachNewThreadSelector(#selector(self.signingThread), toTarget: self, with: nil)
         } else {
-            outputFile = nil
+            AppSigner.sharedInstance.outputFile = nil
             controlsEnabled(true)
         }
     }
@@ -531,7 +372,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
             newVersion = self.appVersion.stringValue.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
         }
 
-        var provisioningFile = self.profileFilename
+        var provisioningFile = AppSigner.sharedInstance.profileFilename
         let inputStartsWithHTTP = inputFile.lowercased().substring(to: inputFile.characters.index(inputFile.startIndex, offsetBy: 4)) == "http"
         var eggCount: Int = 0
         var continueSigning: Bool? = nil
@@ -540,7 +381,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
         
         // Check signing certificate selection
         if signingCertificate == nil {
-            setStatus("No signing certificate selected")
+            AppSigner.setStatus("No signing certificate selected")
             return
         }
         
@@ -560,10 +401,10 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
         
         //MARK: Create working temp folder
         var tempFolder: String! = nil
-        if let tmpFolder = makeTempFolder() {
+        if let tmpFolder = AppSigner.makeTempFolder() {
             tempFolder = tmpFolder
         } else {
-            setStatus("Error creating temp folder")
+            AppSigner.setStatus("Error creating temp folder")
             return
         }
         let workingDirectory = tempFolder.stringByAppendingPathComponent("out")
@@ -578,7 +419,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
         //MARK: Codesign Test
         
         DispatchQueue.main.async(execute: {
-            if let codesignResult = self.testSigning(signingCertificate!, tempFolder: tempFolder) {
+            if let codesignResult = AppSigner.testSigning(signingCertificate!, tempFolder: tempFolder) {
                 if codesignResult == false {
                     let alert = NSAlert()
                     alert.messageText = "Codesigning error"
@@ -588,7 +429,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                     let response = alert.runModal()
                     if response == NSAlertFirstButtonReturn {
                         iASShared.fixSigning(tempFolder)
-                        if self.testSigning(signingCertificate!, tempFolder: tempFolder) == false {
+                        if AppSigner.testSigning(signingCertificate!, tempFolder: tempFolder) == false {
                             let errorAlert = NSAlert()
                             errorAlert.messageText = "Unable to Fix"
                             errorAlert.addButton(withTitle: "OK")
@@ -611,7 +452,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
             if continueSigning != nil {
                 if continueSigning! == false {
                     continueSigning = nil
-                    cleanup(tempFolder); return
+                    AppSigner.cleanup(tempFolder); return
                 }
                 break
             }
@@ -622,9 +463,9 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
         do {
             try fileManager.createDirectory(atPath: eggDirectory, withIntermediateDirectories: true, attributes: nil)
         } catch let error as NSError {
-            setStatus("Error creating egg temp directory")
+            AppSigner.setStatus("Error creating egg temp directory")
             Log.write(error.localizedDescription)
-            cleanup(tempFolder); return
+            AppSigner.cleanup(tempFolder); return
         }
         
         //MARK: Download file
@@ -639,7 +480,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                 downloading = true
                 
                 let downloadTask = defaultSession.downloadTask(with: url)
-                setStatus("Downloading file")
+                AppSigner.setStatus("Downloading file")
                 downloadProgress.startAnimation(nil)
                 downloadTask.resume()
                 defaultSession.finishTasksAndInvalidate()
@@ -649,8 +490,8 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                 usleep(100000)
             }
             if downloadError != nil {
-                setStatus("Error downloading file, \(downloadError!.localizedDescription.lowercased())")
-                cleanup(tempFolder); return
+                AppSigner.setStatus("Error downloading file, \(downloadError!.localizedDescription.lowercased())")
+                AppSigner.cleanup(tempFolder); return
             } else {
                 inputFile = downloadPath
             }
@@ -665,12 +506,12 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                 
                 try fileManager.createDirectory(atPath: debPath, withIntermediateDirectories: true, attributes: nil)
                 try fileManager.createDirectory(atPath: workingDirectory, withIntermediateDirectories: true, attributes: nil)
-                setStatus("Extracting deb file")
-                let debTask = Process().execute(arPath, workingDirectory: debPath, arguments: ["-x", inputFile])
+                AppSigner.setStatus("Extracting deb file")
+                let debTask = Process().execute(AppSigner.sharedInstance.arPath, workingDirectory: debPath, arguments: ["-x", inputFile])
                 Log.write(debTask.output)
                 if debTask.status != 0 {
-                    setStatus("Error processing deb file")
-                    cleanup(tempFolder); return
+                    AppSigner.setStatus("Error processing deb file")
+                    AppSigner.cleanup(tempFolder); return
                 }
                 
                 var tarUnpacked = false
@@ -678,8 +519,8 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                     let dataPath = debPath.stringByAppendingPathComponent("data.\(tarFormat)")
                     if fileManager.fileExists(atPath: dataPath){
                         
-                        setStatus("Unpacking data.\(tarFormat)")
-                        let tarTask = Process().execute(tarPath, workingDirectory: debPath, arguments: ["-xf",dataPath])
+                        AppSigner.setStatus("Unpacking data.\(tarFormat)")
+                        let tarTask = Process().execute(AppSigner.sharedInstance.tarPath, workingDirectory: debPath, arguments: ["-xf",dataPath])
                         Log.write(tarTask.output)
                         if tarTask.status == 0 {
                             tarUnpacked = true
@@ -688,8 +529,8 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                     }
                 }
                 if !tarUnpacked {
-                    setStatus("Error unpacking data.tar")
-                    cleanup(tempFolder); return
+                    AppSigner.setStatus("Error unpacking data.tar")
+                    AppSigner.cleanup(tempFolder); return
                 }
               
               var sourcePath = debPath.stringByAppendingPathComponent("Applications")
@@ -700,8 +541,8 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
               try fileManager.moveItem(atPath: sourcePath, toPath: payloadDirectory)
                 
             } catch {
-                setStatus("Error processing deb file")
-                cleanup(tempFolder); return
+                AppSigner.setStatus("Error processing deb file")
+                AppSigner.cleanup(tempFolder); return
             }
             break
             
@@ -709,59 +550,59 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
             //MARK: --Unzip ipa
             do {
                 try fileManager.createDirectory(atPath: workingDirectory, withIntermediateDirectories: true, attributes: nil)
-                setStatus("Extracting ipa file")
+                AppSigner.setStatus("Extracting ipa file")
                 
-                let unzipTask = self.unzip(inputFile, outputPath: workingDirectory)
+                let unzipTask = AppSigner.unzip(inputFile, outputPath: workingDirectory)
                 if unzipTask.status != 0 {
-                    setStatus("Error extracting ipa file")
-                    cleanup(tempFolder); return
+                    AppSigner.setStatus("Error extracting ipa file")
+                    AppSigner.cleanup(tempFolder); return
                 }
             } catch {
-                setStatus("Error extracting ipa file")
-                cleanup(tempFolder); return
+                AppSigner.setStatus("Error extracting ipa file")
+                AppSigner.cleanup(tempFolder); return
             }
             break
             
         case "app":
             //MARK: --Copy app bundle
             if !inputIsDirectory.boolValue {
-                setStatus("Unsupported input file")
-                cleanup(tempFolder); return
+                AppSigner.setStatus("Unsupported input file")
+                AppSigner.cleanup(tempFolder); return
             }
             do {
                 try fileManager.createDirectory(atPath: payloadDirectory, withIntermediateDirectories: true, attributes: nil)
-                setStatus("Copying app to payload directory")
+                AppSigner.setStatus("Copying app to payload directory")
                 try fileManager.copyItem(atPath: inputFile, toPath: payloadDirectory.stringByAppendingPathComponent(inputFile.lastPathComponent))
             } catch {
-                setStatus("Error copying app to payload directory")
-                cleanup(tempFolder); return
+                AppSigner.setStatus("Error copying app to payload directory")
+                AppSigner.cleanup(tempFolder); return
             }
             break
             
         case "xcarchive":
             //MARK: --Copy app bundle from xcarchive
             if !inputIsDirectory.boolValue {
-                setStatus("Unsupported input file")
-                cleanup(tempFolder); return
+                AppSigner.setStatus("Unsupported input file")
+                AppSigner.cleanup(tempFolder); return
             }
             do {
                 try fileManager.createDirectory(atPath: workingDirectory, withIntermediateDirectories: true, attributes: nil)
-                setStatus("Copying app to payload directory")
+                AppSigner.setStatus("Copying app to payload directory")
                 try fileManager.copyItem(atPath: inputFile.stringByAppendingPathComponent("Products/Applications/"), toPath: payloadDirectory)
             } catch {
-                setStatus("Error copying app to payload directory")
-                cleanup(tempFolder); return
+                AppSigner.setStatus("Error copying app to payload directory")
+                AppSigner.cleanup(tempFolder); return
             }
             break
             
         default:
-            setStatus("Unsupported input file")
-            cleanup(tempFolder); return
+            AppSigner.setStatus("Unsupported input file")
+            AppSigner.cleanup(tempFolder); return
         }
         
         if !fileManager.fileExists(atPath: payloadDirectory){
-            setStatus("Payload directory doesn't exist")
-            cleanup(tempFolder); return
+            AppSigner.setStatus("Payload directory doesn't exist")
+            AppSigner.cleanup(tempFolder); return
         }
         
         // Loop through app bundles in payload directory
@@ -781,33 +622,33 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                 let useAppBundleProfile = (provisioningFile == nil && fileManager.fileExists(atPath: appBundleProvisioningFilePath))
                 
                 //MARK: Delete CFBundleResourceSpecification from Info.plist
-                Log.write(Process().execute(defaultsPath, workingDirectory: nil, arguments: ["delete",appBundleInfoPlist,"CFBundleResourceSpecification"]).output)
+                Log.write(Process().execute(AppSigner.sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["delete",appBundleInfoPlist,"CFBundleResourceSpecification"]).output)
                 
                 //MARK: Copy Provisioning Profile
                 if provisioningFile != nil {
                     if fileManager.fileExists(atPath: appBundleProvisioningFilePath) {
-                        setStatus("Deleting embedded.mobileprovision")
+                        AppSigner.setStatus("Deleting embedded.mobileprovision")
                         do {
                             try fileManager.removeItem(atPath: appBundleProvisioningFilePath)
                         } catch let error as NSError {
-                            setStatus("Error deleting embedded.mobileprovision")
+                            AppSigner.setStatus("Error deleting embedded.mobileprovision")
                             Log.write(error.localizedDescription)
-                            cleanup(tempFolder); return
+                            AppSigner.cleanup(tempFolder); return
                         }
                     }
-                    setStatus("Copying provisioning profile to app bundle")
+                    AppSigner.setStatus("Copying provisioning profile to app bundle")
                     do {
                         try fileManager.copyItem(atPath: provisioningFile!, toPath: appBundleProvisioningFilePath)
                     } catch let error as NSError {
-                        setStatus("Error copying provisioning profile")
+                        AppSigner.setStatus("Error copying provisioning profile")
                         Log.write(error.localizedDescription)
-                        cleanup(tempFolder); return
+                        AppSigner.cleanup(tempFolder); return
                     }
                 }
                 
                 //MARK: Generate entitlements.plist
                 if provisioningFile != nil || useAppBundleProfile {
-                    setStatus("Parsing entitlements")
+                    AppSigner.setStatus("Parsing entitlements")
                     
                     if let profile = ProvisioningProfile(filename: useAppBundleProfile ? appBundleProvisioningFilePath : provisioningFile!){
                         if let entitlements = profile.getEntitlementsPlist(tempFolder) {
@@ -815,55 +656,55 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                             Log.write("–––––––––––––––––––––––")
                             do {
                                 try entitlements.write(toFile: entitlementsPlist, atomically: false, encoding: String.Encoding.utf8.rawValue)
-                                setStatus("Saved entitlements to \(entitlementsPlist)")
+                                AppSigner.setStatus("Saved entitlements to \(entitlementsPlist)")
                             } catch let error as NSError {
-                                setStatus("Error writing entitlements.plist, \(error.localizedDescription)")
+                                AppSigner.setStatus("Error writing entitlements.plist, \(error.localizedDescription)")
                             }
                         } else {
-                            setStatus("Unable to read entitlements from provisioning profile")
+                            AppSigner.setStatus("Unable to read entitlements from provisioning profile")
                             warnings += 1
                         }
                         if profile.appID != "*" && (newApplicationID != "" && newApplicationID != profile.appID) {
-                            setStatus("Unable to change App ID to \(newApplicationID), provisioning profile won't allow it")
-                            cleanup(tempFolder); return
+                            AppSigner.setStatus("Unable to change App ID to \(newApplicationID), provisioning profile won't allow it")
+                            AppSigner.cleanup(tempFolder); return
                         }
                     } else {
-                        setStatus("Unable to parse provisioning profile, it may be corrupt")
+                        AppSigner.setStatus("Unable to parse provisioning profile, it may be corrupt")
                         warnings += 1
                     }
                     
                 }
                 
                 //MARK: Make sure that the executable is well... executable.
-                if let bundleExecutable = getPlistKey(appBundleInfoPlist, keyName: "CFBundleExecutable"){
-                    Process().execute(chmodPath, workingDirectory: nil, arguments: ["755", appBundlePath.stringByAppendingPathComponent(bundleExecutable)])
+                if let bundleExecutable = AppSigner.getPlistKey(appBundleInfoPlist, keyName: "CFBundleExecutable"){
+                    Process().execute(AppSigner.sharedInstance.chmodPath, workingDirectory: nil, arguments: ["755", appBundlePath.stringByAppendingPathComponent(bundleExecutable)])
                 }
                 
                 //MARK: Change Application ID
                 if newApplicationID != "" {
                     
-                    if let oldAppID = getPlistKey(appBundleInfoPlist, keyName: "CFBundleIdentifier") {
+                    if let oldAppID = AppSigner.getPlistKey(appBundleInfoPlist, keyName: "CFBundleIdentifier") {
                         func changeAppexID(_ appexFile: String){
                             let appexPlist = appexFile.stringByAppendingPathComponent("Info.plist")
-                            if let appexBundleID = getPlistKey(appexPlist, keyName: "CFBundleIdentifier"){
+                            if let appexBundleID = AppSigner.getPlistKey(appexPlist, keyName: "CFBundleIdentifier"){
                                 let newAppexID = "\(newApplicationID)\(appexBundleID.substring(from: oldAppID.endIndex))"
-                                setStatus("Changing \(appexFile) id to \(newAppexID)")
-                                setPlistKey(appexPlist, keyName: "CFBundleIdentifier", value: newAppexID)
+                                AppSigner.setStatus("Changing \(appexFile) id to \(newAppexID)")
+                                AppSigner.setPlistKey(appexPlist, keyName: "CFBundleIdentifier", value: newAppexID)
                             }
-                            if Process().execute(defaultsPath, workingDirectory: nil, arguments: ["read", appexPlist,"WKCompanionAppBundleIdentifier"]).status == 0 {
-                                setPlistKey(appexPlist, keyName: "WKCompanionAppBundleIdentifier", value: newApplicationID)
+                            if Process().execute(AppSigner.sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["read", appexPlist,"WKCompanionAppBundleIdentifier"]).status == 0 {
+                                AppSigner.setPlistKey(appexPlist, keyName: "WKCompanionAppBundleIdentifier", value: newApplicationID)
                             }
-                            recursiveDirectorySearch(appexFile, extensions: ["app"], found: changeAppexID)
+                            AppSigner.recursiveDirectorySearch(appexFile, extensions: ["app"], found: changeAppexID)
                         }
-                        recursiveDirectorySearch(appBundlePath, extensions: ["appex"], found: changeAppexID)
+                        AppSigner.recursiveDirectorySearch(appBundlePath, extensions: ["appex"], found: changeAppexID)
                     }
                     
-                    setStatus("Changing App ID to \(newApplicationID)")
-                    let IDChangeTask = setPlistKey(appBundleInfoPlist, keyName: "CFBundleIdentifier", value: newApplicationID)
+                    AppSigner.setStatus("Changing App ID to \(newApplicationID)")
+                    let IDChangeTask = AppSigner.setPlistKey(appBundleInfoPlist, keyName: "CFBundleIdentifier", value: newApplicationID)
                     if IDChangeTask.status != 0 {
-                        setStatus("Error changing App ID")
+                        AppSigner.setStatus("Error changing App ID")
                         Log.write(IDChangeTask.output)
-                        cleanup(tempFolder); return
+                        AppSigner.cleanup(tempFolder); return
                     }
                     
                     
@@ -871,34 +712,34 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                 
                 //MARK: Change Display Name
                 if newDisplayName != "" {
-                    setStatus("Changing Display Name to \(newDisplayName))")
-                    let displayNameChangeTask = Process().execute(defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleDisplayName", newDisplayName])
+                    AppSigner.setStatus("Changing Display Name to \(newDisplayName))")
+                    let displayNameChangeTask = Process().execute(AppSigner.sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleDisplayName", newDisplayName])
                     if displayNameChangeTask.status != 0 {
-                        setStatus("Error changing display name")
+                        AppSigner.setStatus("Error changing display name")
                         Log.write(displayNameChangeTask.output)
-                        cleanup(tempFolder); return
+                        AppSigner.cleanup(tempFolder); return
                     }
                 }
                 
                 //MARK: Change Version
                 if newVersion != "" {
-                    setStatus("Changing Version to \(newVersion)")
-                    let versionChangeTask = Process().execute(defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleVersion", newVersion])
+                    AppSigner.setStatus("Changing Version to \(newVersion)")
+                    let versionChangeTask = Process().execute(AppSigner.sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleVersion", newVersion])
                     if versionChangeTask.status != 0 {
-                        setStatus("Error changing version")
+                        AppSigner.setStatus("Error changing version")
                         Log.write(versionChangeTask.output)
-                        cleanup(tempFolder); return
+                        AppSigner.cleanup(tempFolder); return
                     }
                 }
                 
                 //MARK: Change Short Version
                 if newShortVersion != "" {
-                    setStatus("Changing Short Version to \(newShortVersion)")
-                    let shortVersionChangeTask = Process().execute(defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleShortVersionString", newShortVersion])
+                    AppSigner.setStatus("Changing Short Version to \(newShortVersion)")
+                    let shortVersionChangeTask = Process().execute(AppSigner.sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleShortVersionString", newShortVersion])
                     if shortVersionChangeTask.status != 0 {
-                        setStatus("Error changing short version")
+                        AppSigner.setStatus("Error changing short version")
                         Log.write(shortVersionChangeTask.output)
-                        cleanup(tempFolder); return
+                        AppSigner.cleanup(tempFolder); return
                     }
                 }
                 
@@ -918,19 +759,19 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                     }
                     
                     func beforeFunc(_ file: String, certificate: String, entitlements: String?){
-                            setStatus("Codesigning \(shortName(file, payloadDirectory: payloadDirectory))\(useEntitlements ? " with entitlements":"")")
+                            AppSigner.setStatus("Codesigning \(shortName(file, payloadDirectory: payloadDirectory))\(useEntitlements ? " with entitlements":"")")
                     }
                     
                     func afterFunc(_ file: String, certificate: String, entitlements: String?, codesignOutput: AppSignerTaskOutput){
                         if codesignOutput.status != 0 {
-                            setStatus("Error codesigning \(shortName(file, payloadDirectory: payloadDirectory))")
+                            AppSigner.setStatus("Error codesigning \(shortName(file, payloadDirectory: payloadDirectory))")
                             Log.write(codesignOutput.output)
                             warnings += 1
                         }
                     }
                     
                     func output(_ file:String){
-                        codeSign(file, certificate: signingCertificate, entitlements: entitlementsPath, before: beforeFunc, after: afterFunc)
+                        AppSigner.codeSign(file, certificate: signingCertificate, entitlements: entitlementsPath, before: beforeFunc, after: afterFunc)
                     }
                     return output
                 }
@@ -945,28 +786,28 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                     
                     let currentEggPath = eggDirectory.stringByAppendingPathComponent("egg\(eggCount)")
                     let shortName = eggFile.substring(from: payloadDirectory.endIndex)
-                    setStatus("Extracting \(shortName)")
-                    if self.unzip(eggFile, outputPath: currentEggPath).status != 0 {
+                    AppSigner.setStatus("Extracting \(shortName)")
+                    if AppSigner.unzip(eggFile, outputPath: currentEggPath).status != 0 {
                         Log.write("Error extracting \(shortName)")
                         return
                     }
-                    recursiveDirectorySearch(currentEggPath, extensions: ["egg"], found: signEgg)
-                    recursiveDirectorySearch(currentEggPath, extensions: signableExtensions, found: eggSigningFunction)
-                    setStatus("Compressing \(shortName)")
-                    self.zip(currentEggPath, outputFile: eggFile)                    
+                    AppSigner.recursiveDirectorySearch(currentEggPath, extensions: ["egg"], found: signEgg)
+                    AppSigner.recursiveDirectorySearch(currentEggPath, extensions: signableExtensions, found: eggSigningFunction)
+                    AppSigner.setStatus("Compressing \(shortName)")
+                    AppSigner.zip(currentEggPath, outputFile: eggFile)
                 }
                 
-                recursiveDirectorySearch(appBundlePath, extensions: ["egg"], found: signEgg)
+                AppSigner.recursiveDirectorySearch(appBundlePath, extensions: ["egg"], found: signEgg)
                 
                 //MARK: Codesigning - App
                 let signingFunction = generateFileSignFunc(payloadDirectory, entitlementsPath: entitlementsPlist, signingCertificate: signingCertificate!)
                 
                 
-                recursiveDirectorySearch(appBundlePath, extensions: signableExtensions, found: signingFunction)
+                AppSigner.recursiveDirectorySearch(appBundlePath, extensions: signableExtensions, found: signingFunction)
                 signingFunction(appBundlePath)
                 
                 //MARK: Codesigning - Verification
-                let verificationTask = Process().execute(codesignPath, workingDirectory: nil, arguments: ["-v",appBundlePath])
+                let verificationTask = Process().execute(AppSigner.sharedInstance.codesignPath, workingDirectory: nil, arguments: ["-v",appBundlePath])
                 if verificationTask.status != 0 {
                     DispatchQueue.main.async(execute: {
                         let alert = NSAlert()
@@ -975,37 +816,37 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                         alert.informativeText = verificationTask.output
                         alert.alertStyle = .critical
                         alert.runModal()
-                        self.setStatus("Error verifying code signature")
+                        AppSigner.setStatus("Error verifying code signature")
                         Log.write(verificationTask.output)
-                        self.cleanup(tempFolder); return
+                        AppSigner.cleanup(tempFolder); return
                     })
                 }
             }
         } catch let error as NSError {
-            setStatus("Error listing files in payload directory")
+            AppSigner.setStatus("Error listing files in payload directory")
             Log.write(error.localizedDescription)
-            cleanup(tempFolder); return
+            AppSigner.cleanup(tempFolder); return
         }
         
         //MARK: Packaging
         //Check if output already exists and delete if so
-        if fileManager.fileExists(atPath: outputFile!) {
+        if fileManager.fileExists(atPath: AppSigner.sharedInstance.outputFile!) {
             do {
-                try fileManager.removeItem(atPath: outputFile!)
+                try fileManager.removeItem(atPath: AppSigner.sharedInstance.outputFile!)
             } catch let error as NSError {
-                setStatus("Error deleting output file")
+                AppSigner.setStatus("Error deleting output file")
                 Log.write(error.localizedDescription)
-                cleanup(tempFolder); return
+                AppSigner.cleanup(tempFolder); return
             }
         }
-        setStatus("Packaging IPA")
-        let zipTask = self.zip(workingDirectory, outputFile: outputFile!)
+        AppSigner.setStatus("Packaging IPA")
+        let zipTask = AppSigner.zip(workingDirectory, outputFile: AppSigner.sharedInstance.outputFile!)
         if zipTask.status != 0 {
-            setStatus("Error packaging IPA")
+            AppSigner.setStatus("Error packaging IPA")
         }
         //MARK: Cleanup
-        cleanup(tempFolder)
-        setStatus("Done, output at \(outputFile!)")
+        AppSigner.cleanup(tempFolder)
+        AppSigner.setStatus("Done, output at \(AppSigner.sharedInstance.outputFile!)")
     }
 
     
@@ -1014,7 +855,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
         
         switch(sender.indexOfSelectedItem){
         case 0:
-            self.profileFilename = nil
+            AppSigner.sharedInstance.profileFilename = nil
             if NewApplicationIDTextField.isEnabled == false {
                 NewApplicationIDTextField.isEnabled = true
                 NewApplicationIDTextField.stringValue = ""
@@ -1043,7 +884,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
             break
             
         default:
-            let profile = provisioningProfiles[sender.indexOfSelectedItem - 3]
+            let profile = AppSigner.sharedInstance.provisioningProfiles[sender.indexOfSelectedItem - 3]
             checkProfileID(profile)
             break
         }
@@ -1068,7 +909,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
     
     @IBAction func doSign(_ sender: NSButton) {
         switch(true){
-            case (codesigningCerts.count == 0):
+            case (AppSigner.sharedInstance.codesigningCerts.count == 0):
                 showCodesignCertsErrorAlert()
                 break
             
@@ -1079,7 +920,7 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
     }
     
     @IBAction func statusLabelClick(_ sender: NSButton) {
-        if let outputFile = self.outputFile {
+        if let outputFile = AppSigner.sharedInstance.outputFile {
             if fileManager.fileExists(atPath: outputFile) {
                 NSWorkspace.shared().activateFileViewerSelecting([URL(fileURLWithPath: outputFile)])
             }

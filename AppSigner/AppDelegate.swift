@@ -28,7 +28,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
     @IBAction func fixSigning(_ sender: NSMenuItem) {
-        if let tempFolder = mainView.makeTempFolder() {
+        if let tempFolder = AppSigner.makeTempFolder() {
             iASShared.fixSigning(tempFolder)
             try? fileManager.removeItem(atPath: tempFolder)
             mainView.populateCodesigningCerts()
