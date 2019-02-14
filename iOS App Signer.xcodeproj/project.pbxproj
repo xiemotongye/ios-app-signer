@@ -76,7 +76,7 @@
 		65B24E0D1BECB30D005D2068 /* AppSigner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = AppSigner.entitlements; sourceTree = "<group>"; };
 		65B2EAA11CDE981500D02053 /* iASShared.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = iASShared.swift; path = AppSigner/Classes/iASShared.swift; sourceTree = "<group>"; };
 		65CED3A22D8B6F3E00E9185B /* fix-wwdr.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "fix-wwdr.sh"; path = "Resources/fix-wwdr.sh"; sourceTree = "<group>"; };
-		98FB02632211646400B810FA /* iOSAppSignerCLT */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = iOSAppSignerCLT; sourceTree = BUILT_PRODUCTS_DIR; };
+		98FB02632211646400B810FA /* iOSAppSignerCLI */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = iOSAppSignerCLI; sourceTree = BUILT_PRODUCTS_DIR; };
 		98FB02652211646400B810FA /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		98FB02892212D77100B810FA /* AppSigner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSigner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -104,7 +104,7 @@
 			children = (
 				659734971C65B5B900383D2D /* NimbusKit */,
 				652408CA1BE743D4006FA4C6 /* AppSigner */,
-				98FB02642211646400B810FA /* iOSAppSignerCLT */,
+				98FB02642211646400B810FA /* iOSAppSignerCLI */,
 				652408C91BE743D4006FA4C6 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -113,7 +113,7 @@
 			isa = PBXGroup;
 			children = (
 				652408C81BE743D4006FA4C6 /* iOS App Signer.app */,
-				98FB02632211646400B810FA /* iOSAppSignerCLT */,
+				98FB02632211646400B810FA /* iOSAppSignerCLI */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -200,12 +200,12 @@
 			name = Resources;
 			sourceTree = "<group>";
 		};
-		98FB02642211646400B810FA /* iOSAppSignerCLT */ = {
+		98FB02642211646400B810FA /* iOSAppSignerCLI */ = {
 			isa = PBXGroup;
 			children = (
 				98FB02652211646400B810FA /* main.swift */,
 			);
-			path = iOSAppSignerCLT;
+			path = iOSAppSignerCLI;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -228,9 +228,9 @@
 			productReference = 652408C81BE743D4006FA4C6 /* iOS App Signer.app */;
 			productType = "com.apple.product-type.application";
 		};
-		98FB02622211646400B810FA /* iOSAppSignerCLT */ = {
+		98FB02622211646400B810FA /* iOSAppSignerCLI */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 98FB02692211646400B810FA /* Build configuration list for PBXNativeTarget "iOSAppSignerCLT" */;
+			buildConfigurationList = 98FB02692211646400B810FA /* Build configuration list for PBXNativeTarget "iOSAppSignerCLI" */;
 			buildPhases = (
 				98FB025F2211646400B810FA /* Sources */,
 				98FB02602211646400B810FA /* Frameworks */,
@@ -240,9 +240,9 @@
 			);
 			dependencies = (
 			);
-			name = iOSAppSignerCLT;
+			name = iOSAppSignerCLI;
 			productName = iOSAppSignerCLT;
-			productReference = 98FB02632211646400B810FA /* iOSAppSignerCLT */;
+			productReference = 98FB02632211646400B810FA /* iOSAppSignerCLI */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
@@ -286,7 +286,7 @@
 			projectRoot = "";
 			targets = (
 				652408C71BE743D4006FA4C6 /* iOS App Signer */,
-				98FB02622211646400B810FA /* iOSAppSignerCLT */,
+				98FB02622211646400B810FA /* iOSAppSignerCLI */,
 			);
 		};
 /* End PBXProject section */
@@ -544,7 +544,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		98FB02692211646400B810FA /* Build configuration list for PBXNativeTarget "iOSAppSignerCLT" */ = {
+		98FB02692211646400B810FA /* Build configuration list for PBXNativeTarget "iOSAppSignerCLI" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				98FB02672211646400B810FA /* Debug */,
