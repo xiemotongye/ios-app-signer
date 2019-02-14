@@ -30,5 +30,5 @@ Usage
 Example
 ------
 ```
-./iOSAppSignerCLI -i /Users/xiemotongye/Desktop/org.ipa -o /Users/xiemotongye/Desktop/new.ipa  -c "iPhone Developer: Yimin Huang (5VET999CZ9)" -s /Users/xiemotongye/Desktop/aaa.mobileprovision -v 5.24
+./iOSAppSignerCLI -i /Users/xiemotongye/Desktop/org.ipa -o /Users/xiemotongye/Desktop/new.ipa  -c "iPhone Developer: Yimin Huang (5VET999CZ9)" -p /Users/xiemotongye/Desktop/aaa.mobileprovision -v 5.24
 ```
