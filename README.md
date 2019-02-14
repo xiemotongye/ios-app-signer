@@ -16,3 +16,19 @@ You can then open up iOS App Signer and select your input file, signing certific
 Thanks To
 ------
 [maciekish / iReSign](https://github.com/maciekish/iReSign): The basic process was gleaned from the source code of this project.
+
+
+# iOS App Signer CLI
+
+Usage
+-----
+
+```
+./iOSAppSignerCLI -i ipa_file -o output_ipa_file -c certificate_name [-p provisioning_profile] [-b bundle_id] [-d display_name] [-v version_num] [-s short_version_num]
+```
+
+Example
+------
+```
+./iOSAppSignerCLI -i /Users/xiemotongye/Desktop/org.ipa -o /Users/xiemotongye/Desktop/new.ipa  -c "iPhone Developer: Yimin Huang (5VET999CZ9)" -s /Users/xiemotongye/Desktop/aaa.mobileprovision -v 5.24
+```
