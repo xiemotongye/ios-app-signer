@@ -34,6 +34,7 @@ class AppSigner: NSObject {
     var newShortVersion : String = ""
     var newVersion : String = ""
     var inputIsDirectory: ObjCBool = false
+    var bundleID = Bundle.main.bundleIdentifier
     
     //MARK: Constants
     let arPath = "/usr/bin/ar"
@@ -46,7 +47,6 @@ class AppSigner: NSObject {
     let securityPath = "/usr/bin/security"
     let chmodPath = "/bin/chmod"
     let fileManager = FileManager.default
-    let bundleID = Bundle.main.bundleIdentifier
     let refreshStatusNotification = "refreshStatusNotification"
     let cleanupNotification = "cleanupNotification"
     
@@ -346,7 +346,7 @@ class AppSigner: NSObject {
     }
     
     static func codesign() {
-        var provisioningFile = AppSigner.sharedInstance.profileFilename
+        var provisioningFile = sharedInstance.profileFilename
         var warnings = 0
         var eggCount: Int = 0
         
@@ -367,7 +367,7 @@ class AppSigner: NSObject {
                 let useAppBundleProfile = (provisioningFile == nil && sharedInstance.fileManager.fileExists(atPath: appBundleProvisioningFilePath))
                 
                 //MARK: Delete CFBundleResourceSpecification from Info.plist
-                Log.write(Process().execute(AppSigner.sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["delete",appBundleInfoPlist,"CFBundleResourceSpecification"]).output)
+                Log.write(Process().execute(sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["delete",appBundleInfoPlist,"CFBundleResourceSpecification"]).output)
                 
                 //MARK: Copy Provisioning Profile
                 if provisioningFile != nil {
@@ -409,8 +409,8 @@ class AppSigner: NSObject {
                             AppSigner.setStatus("Unable to read entitlements from provisioning profile")
                             warnings += 1
                         }
-                        if profile.appID != "*" && (AppSigner.sharedInstance.newApplicationID != "" && AppSigner.sharedInstance.newApplicationID != profile.appID) {
-                            AppSigner.setStatus("Unable to change App ID to \(AppSigner.sharedInstance.newApplicationID), provisioning profile won't allow it")
+                        if profile.appID != "*" && (sharedInstance.newApplicationID != "" && sharedInstance.newApplicationID != profile.appID) {
+                            AppSigner.setStatus("Unable to change App ID to \(sharedInstance.newApplicationID), provisioning profile won't allow it")
                             AppSigner.cleanup(sharedInstance.tempFolder); return
                         }
                     } else {
@@ -422,30 +422,30 @@ class AppSigner: NSObject {
                 
                 //MARK: Make sure that the executable is well... executable.
                 if let bundleExecutable = AppSigner.getPlistKey(appBundleInfoPlist, keyName: "CFBundleExecutable"){
-                    Process().execute(AppSigner.sharedInstance.chmodPath, workingDirectory: nil, arguments: ["755", appBundlePath.stringByAppendingPathComponent(bundleExecutable)])
+                    Process().execute(sharedInstance.chmodPath, workingDirectory: nil, arguments: ["755", appBundlePath.stringByAppendingPathComponent(bundleExecutable)])
                 }
                 
                 //MARK: Change Application ID
-                if AppSigner.sharedInstance.newApplicationID != "" {
+                if sharedInstance.newApplicationID != "" {
                     
                     if let oldAppID = AppSigner.getPlistKey(appBundleInfoPlist, keyName: "CFBundleIdentifier") {
                         func changeAppexID(_ appexFile: String){
                             let appexPlist = appexFile.stringByAppendingPathComponent("Info.plist")
                             if let appexBundleID = AppSigner.getPlistKey(appexPlist, keyName: "CFBundleIdentifier"){
-                                let newAppexID = "\(AppSigner.sharedInstance.newApplicationID)\(appexBundleID.substring(from: oldAppID.endIndex))"
+                                let newAppexID = "\(sharedInstance.newApplicationID)\(appexBundleID.substring(from: oldAppID.endIndex))"
                                 AppSigner.setStatus("Changing \(appexFile) id to \(newAppexID)")
                                 AppSigner.setPlistKey(appexPlist, keyName: "CFBundleIdentifier", value: newAppexID)
                             }
-                            if Process().execute(AppSigner.sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["read", appexPlist,"WKCompanionAppBundleIdentifier"]).status == 0 {
-                                AppSigner.setPlistKey(appexPlist, keyName: "WKCompanionAppBundleIdentifier", value: AppSigner.sharedInstance.newApplicationID)
+                            if Process().execute(sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["read", appexPlist,"WKCompanionAppBundleIdentifier"]).status == 0 {
+                                AppSigner.setPlistKey(appexPlist, keyName: "WKCompanionAppBundleIdentifier", value: sharedInstance.newApplicationID)
                             }
                             AppSigner.recursiveDirectorySearch(appexFile, extensions: ["app"], found: changeAppexID)
                         }
                         AppSigner.recursiveDirectorySearch(appBundlePath, extensions: ["appex"], found: changeAppexID)
                     }
                     
-                    AppSigner.setStatus("Changing App ID to \(AppSigner.sharedInstance.newApplicationID)")
-                    let IDChangeTask = AppSigner.setPlistKey(appBundleInfoPlist, keyName: "CFBundleIdentifier", value: AppSigner.sharedInstance.newApplicationID)
+                    AppSigner.setStatus("Changing App ID to \(sharedInstance.newApplicationID)")
+                    let IDChangeTask = AppSigner.setPlistKey(appBundleInfoPlist, keyName: "CFBundleIdentifier", value: sharedInstance.newApplicationID)
                     if IDChangeTask.status != 0 {
                         AppSigner.setStatus("Error changing App ID")
                         Log.write(IDChangeTask.output)
@@ -456,9 +456,9 @@ class AppSigner: NSObject {
                 }
                 
                 //MARK: Change Display Name
-                if AppSigner.sharedInstance.newDisplayName != "" {
-                    AppSigner.setStatus("Changing Display Name to \(AppSigner.sharedInstance.newDisplayName))")
-                    let displayNameChangeTask = Process().execute(AppSigner.sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleDisplayName", AppSigner.sharedInstance.newDisplayName])
+                if sharedInstance.newDisplayName != "" {
+                    AppSigner.setStatus("Changing Display Name to \(sharedInstance.newDisplayName))")
+                    let displayNameChangeTask = Process().execute(sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleDisplayName", sharedInstance.newDisplayName])
                     if displayNameChangeTask.status != 0 {
                         AppSigner.setStatus("Error changing display name")
                         Log.write(displayNameChangeTask.output)
@@ -467,9 +467,9 @@ class AppSigner: NSObject {
                 }
                 
                 //MARK: Change Version
-                if AppSigner.sharedInstance.newVersion != "" {
-                    AppSigner.setStatus("Changing Version to \(AppSigner.sharedInstance.newVersion)")
-                    let versionChangeTask = Process().execute(AppSigner.sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleVersion", AppSigner.sharedInstance.newVersion])
+                if sharedInstance.newVersion != "" {
+                    AppSigner.setStatus("Changing Version to \(sharedInstance.newVersion)")
+                    let versionChangeTask = Process().execute(sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleVersion", sharedInstance.newVersion])
                     if versionChangeTask.status != 0 {
                         AppSigner.setStatus("Error changing version")
                         Log.write(versionChangeTask.output)
@@ -478,9 +478,9 @@ class AppSigner: NSObject {
                 }
                 
                 //MARK: Change Short Version
-                if AppSigner.sharedInstance.newShortVersion != "" {
-                    AppSigner.setStatus("Changing Short Version to \(AppSigner.sharedInstance.newShortVersion)")
-                    let shortVersionChangeTask = Process().execute(AppSigner.sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleShortVersionString", AppSigner.sharedInstance.newShortVersion])
+                if sharedInstance.newShortVersion != "" {
+                    AppSigner.setStatus("Changing Short Version to \(sharedInstance.newShortVersion)")
+                    let shortVersionChangeTask = Process().execute(sharedInstance.defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleShortVersionString", sharedInstance.newShortVersion])
                     if shortVersionChangeTask.status != 0 {
                         AppSigner.setStatus("Error changing short version")
                         Log.write(shortVersionChangeTask.output)
@@ -525,7 +525,7 @@ class AppSigner: NSObject {
                 let signableExtensions = ["dylib","so","0","vis","pvr","framework","appex","app"]
                 
                 //MARK: Codesigning - Eggs
-                let eggSigningFunction = generateFileSignFunc(sharedInstance.eggDirectory, entitlementsPath: sharedInstance.entitlementsPlist, signingCertificate: AppSigner.sharedInstance.signingCertificate!)
+                let eggSigningFunction = generateFileSignFunc(sharedInstance.eggDirectory, entitlementsPath: sharedInstance.entitlementsPlist, signingCertificate: sharedInstance.signingCertificate!)
                 func signEgg(_ eggFile: String){
                     eggCount += 1
                     
@@ -545,22 +545,16 @@ class AppSigner: NSObject {
                 AppSigner.recursiveDirectorySearch(appBundlePath, extensions: ["egg"], found: signEgg)
                 
                 //MARK: Codesigning - App
-                let signingFunction = generateFileSignFunc(sharedInstance.payloadDirectory, entitlementsPath: sharedInstance.entitlementsPlist, signingCertificate: AppSigner.sharedInstance.signingCertificate!)
+                let signingFunction = generateFileSignFunc(sharedInstance.payloadDirectory, entitlementsPath: sharedInstance.entitlementsPlist, signingCertificate: sharedInstance.signingCertificate!)
                 
                 
                 AppSigner.recursiveDirectorySearch(appBundlePath, extensions: signableExtensions, found: signingFunction)
                 signingFunction(appBundlePath)
                 
                 //MARK: Codesigning - Verification
-                let verificationTask = Process().execute(AppSigner.sharedInstance.codesignPath, workingDirectory: nil, arguments: ["-v",appBundlePath])
+                let verificationTask = Process().execute(sharedInstance.codesignPath, workingDirectory: nil, arguments: ["-v",appBundlePath])
                 if verificationTask.status != 0 {
                     DispatchQueue.main.async(execute: {
-                        let alert = NSAlert()
-                        alert.addButton(withTitle: "OK")
-                        alert.messageText = "Error verifying code signature!"
-                        alert.informativeText = verificationTask.output
-                        alert.alertStyle = .critical
-                        alert.runModal()
                         AppSigner.setStatus("Error verifying code signature")
                         Log.write(verificationTask.output)
                         AppSigner.cleanup(sharedInstance.tempFolder); return
@@ -575,9 +569,9 @@ class AppSigner: NSObject {
         
         //MARK: Packaging
         //Check if output already exists and delete if so
-        if sharedInstance.fileManager.fileExists(atPath: AppSigner.sharedInstance.outputFile!) {
+        if sharedInstance.fileManager.fileExists(atPath: sharedInstance.outputFile!) {
             do {
-                try sharedInstance.fileManager.removeItem(atPath: AppSigner.sharedInstance.outputFile!)
+                try sharedInstance.fileManager.removeItem(atPath: sharedInstance.outputFile!)
             } catch let error as NSError {
                 AppSigner.setStatus("Error deleting output file")
                 Log.write(error.localizedDescription)
@@ -585,12 +579,12 @@ class AppSigner: NSObject {
             }
         }
         AppSigner.setStatus("Packaging IPA")
-        let zipTask = AppSigner.zip(sharedInstance.workingDirectory, outputFile: AppSigner.sharedInstance.outputFile!)
+        let zipTask = AppSigner.zip(sharedInstance.workingDirectory, outputFile: sharedInstance.outputFile!)
         if zipTask.status != 0 {
             AppSigner.setStatus("Error packaging IPA")
         }
         //MARK: Cleanup
         AppSigner.cleanup(sharedInstance.tempFolder)
-        AppSigner.setStatus("Done, output at \(AppSigner.sharedInstance.outputFile!)")
+        AppSigner.setStatus("Done, output at \(sharedInstance.outputFile!)")
     }
 }

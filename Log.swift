@@ -9,7 +9,7 @@
 import Foundation
 class Log {
     static let mainBundle = Bundle.main
-    static let bundleID = mainBundle.bundleIdentifier
+    static var bundleID = mainBundle.bundleIdentifier
     static let bundleName = mainBundle.infoDictionary!["CFBundleName"]
     static let bundleVersion = mainBundle.infoDictionary!["CFBundleShortVersionString"]
     static let tempDirectory = NSTemporaryDirectory()
